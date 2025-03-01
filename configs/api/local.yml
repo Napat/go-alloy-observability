@@ -1,0 +1,6 @@
+services:
+  otlp:
+    host: localhost
+    port: "4318"  # Alloy OTLP/HTTP receiver port
+  server:
+    port: "18080"

@@ -1,0 +1,23 @@
+# Docker volumes data
+docker/data/**
+
+# IDE and OS files
+.DS_Store
+.idea/
+.vscode/
+.qodo/
+
+# Binary files
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Log files
+*.log
+
+# Go specific
+*.test
+*.out
+/vendor/

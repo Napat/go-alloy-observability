@@ -1,0 +1,21 @@
+server:
+  http_listen_port: 3200  # query frontend port
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"  # OTLP/gRPC receiver endpoint
+        http:
+          endpoint: "0.0.0.0:4318"  # OTLP/HTTP receiver endpoint
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /data/tempo/blocks
+
+compactor:
+  compaction:
+    block_retention: 24h

@@ -1,0 +1,35 @@
+apiVersion: 1
+
+datasources:
+  - name: Mimir
+    type: prometheus
+    access: proxy
+    url: http://mimir:9009/prometheus
+    jsonData:
+      httpMethod: GET
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      maxLines: 1000
+
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      serviceMap:
+        datasourceUid: prometheus
+      search:
+        hide: false
+      nodeGraph:
+        enabled: true
+
+  - name: Pyroscope
+    type: grafana-pyroscope-datasource
+    access: proxy
+    url: http://pyroscope:4040
+    jsonData:
+      httpMethod: GET

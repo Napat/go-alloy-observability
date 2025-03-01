@@ -1,0 +1,407 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 5,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "code",
+          "expr": "{service_name=\"test-service\"} | json",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "All Logs (JSON)",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "code",
+          "expr": "{service_name=\"test-service\"} | json | detected_level=~\"error|warn\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Error/Warning Logs (JSON)",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({service_name=\"test-service\"} | json | detected_level=~\"error|warn|info|debug\" [1m])) by (level)",
+          "legendFormat": "{{level}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Log Volume by Level",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "10.2.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({service_name=\"test-service\"} | json | detected_level=~\"error|warn\" [5m]))",
+          "legendFormat": "Issues",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Error/Warning Rate (5m)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 4,
+      "options": {
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.2.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "code",
+          "expr": "topk(5, sum by(msg) (count_over_time({service_name=\"test-service\"} | json | detected_level=~\"error|warn\" [5m])))",
+          "legendFormat": "{{msg}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 5 Error Messages",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.2.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "code",
+          "expr": "sum by(user_id) (count_over_time({service_name=\"test-service\"} | json [5m]))",
+          "legendFormat": "{{user_id}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Log Distribution by User",
+      "type": "bargauge"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "logs",
+    "loki"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Loki Logs Dashboard",
+  "uid": "loki-logs-copy",
+  "version": 1,
+  "weekStart": ""
+}
