@@ -45,6 +45,46 @@ func SimulateWork(c echo.Context) error {
 	return c.JSON(200, map[string]interface{}{"duration_ms": duration.Milliseconds()})
 }
 
+// SimulateWorkError always returns an error
+func SimulateWorkError(c echo.Context) error {
+	_, span := tracer.Start(c.Request().Context(), "simulate-work-error")
+	defer span.End()
+
+	// Simulate random processing time before error
+	duration := time.Duration(rand.Int63n(500)) * time.Millisecond
+	time.Sleep(duration)
+
+	err := fmt.Errorf("simulated work processing error")
+	span.RecordError(err)
+	span.SetAttributes(attribute.Float64("processing.duration_ms", float64(duration.Milliseconds())))
+
+	return c.JSON(500, map[string]interface{}{"error": err.Error(), "duration_ms": duration.Milliseconds()})
+}
+
+// SimulateMemoryError simulates a memory allocation error
+func SimulateMemoryError(c echo.Context) error {
+	_, span := tracer.Start(c.Request().Context(), "simulate-memory-error")
+	defer span.End()
+
+	err := fmt.Errorf("out of memory error simulation")
+	span.RecordError(err)
+	span.SetAttributes(attribute.String("error.type", "memory_allocation_error"))
+
+	return c.JSON(500, map[string]interface{}{"error": err.Error()})
+}
+
+// SimulateCPUError simulates a CPU overload error
+func SimulateCPUError(c echo.Context) error {
+	_, span := tracer.Start(c.Request().Context(), "simulate-cpu-error")
+	defer span.End()
+
+	err := fmt.Errorf("CPU overload error simulation")
+	span.RecordError(err)
+	span.SetAttributes(attribute.String("error.type", "cpu_overload"))
+
+	return c.JSON(500, map[string]interface{}{"error": err.Error()})
+}
+
 // Global variable to simulate memory leak
 var leakedMemory [][]byte
 

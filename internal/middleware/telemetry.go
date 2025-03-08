@@ -22,6 +22,7 @@ func init() {
 	requestCounter, err = meter.Int64Counter(
 		"http_requests_total",
 		metric.WithDescription("Total number of HTTP requests"),
+		metric.WithUnit("1"),
 	)
 	if err != nil {
 		panic(err)
@@ -34,6 +35,7 @@ func Telemetry() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			start := time.Now()
 			path := c.Request().URL.Path
+			method := c.Request().Method
 
 			// Extract tracing context from headers
 			ctx := c.Request().Context()
@@ -41,12 +43,12 @@ func Telemetry() echo.MiddlewareFunc {
 			ctx = propagator.Extract(ctx, propagation.HeaderCarrier(c.Request().Header))
 
 			// Start a new span
-			ctx, span := tracer.Start(ctx, fmt.Sprintf("HTTP %s %s", c.Request().Method, path))
+			ctx, span := tracer.Start(ctx, fmt.Sprintf("HTTP %s %s", method, path))
 			defer span.End()
 
 			// Add basic span attributes
 			span.SetAttributes(
-				attribute.String("http.method", c.Request().Method),
+				attribute.String("http.method", method),
 				attribute.String("http.path", path),
 			)
 
@@ -56,20 +58,22 @@ func Telemetry() echo.MiddlewareFunc {
 			// Process request
 			err := next(c)
 
-			 // Calculate request duration
+			// Calculate request duration
 			duration := time.Since(start).Milliseconds()
 
-			// Record metrics after request is processed
+			// Record metrics with proper labels for Prometheus-style queries
 			attrs := []attribute.KeyValue{
-				attribute.String("method", c.Request().Method),
+				attribute.String("method", method),
 				attribute.String("path", path),
-				attribute.Int64("duration_ms", duration),
 			}
 
 			if err != nil {
-				attrs = append(attrs, attribute.Bool("error", true))
+				attrs = append(attrs, attribute.String("status", "error"))
+			} else {
+				attrs = append(attrs, attribute.String("status", "success"))
 			}
 
+			// Record request count
 			requestCounter.Add(ctx, 1, metric.WithAttributes(attrs...))
 
 			// Add duration to span

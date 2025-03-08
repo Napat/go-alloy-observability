@@ -6,12 +6,34 @@ common:
     filesystem:
       dir: /data/mimir
 
+activity_tracker: {}
+
+alertmanager: {}
+
+alertmanager_storage:
+  backend: local
+
+memberlist:
+  join_members:
+    - mimir:7946
+  bind_addr:
+    - 0.0.0.0
+  bind_port: 7946
+  dead_node_reclaim_time: 30s
+  gossip_interval: 5s
+  gossip_nodes: 3
+  node_name: mimir
+  stream_timeout: 5s
+
 blocks_storage:
   backend: filesystem
   filesystem:
     dir: /data/mimir/blocks
+  bucket_store:
+    sync_dir: /data/mimir/sync
   tsdb:
     dir: /data/mimir/tsdb
+    retention_period: 168h
 
 compactor:
   data_dir: /data/mimir/compactor
@@ -24,10 +46,20 @@ distributor:
     kvstore:
       store: inmemory
 
+ingester_client:
+  grpc_client_config:
+    grpc_compression: gzip
+    max_recv_msg_size: 104857600
+    max_send_msg_size: 104857600
+
 ingester:
   ring:
+    final_sleep: 0s
     kvstore:
       store: inmemory
+    min_ready_duration: 0s
+    num_tokens: 512
+    replication_factor: 1
 
 ruler_storage:
   backend: filesystem
@@ -38,8 +70,14 @@ server:
   http_listen_port: 9009
   grpc_listen_port: 9095
   log_level: info
+  grpc_server_max_recv_msg_size: 104857600  # 100MB
+  grpc_server_max_send_msg_size: 104857600  # 100MB
+  grpc_server_max_concurrent_streams: 1000
+  http_server_read_timeout: 30s
+  http_server_write_timeout: 2m0s
 
 store_gateway:
   sharding_ring:
+    replication_factor: 1
     kvstore:
       store: inmemory

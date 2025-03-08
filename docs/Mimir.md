@@ -1,4 +1,13 @@
-# OpenTelemetry Metrics
+# Mimir and OpenTelemetry Metrics
+
+Mimir เป็น time series database ที่ใช้เก็บ Metrics โดยเฉพาะ โดยสามารถรับข้อมูลเข้ามาในรูปแบบ Prometheus format และเก็บไว้ใน object storage หรืออาจจะตั้งค่าให้เก็บใน local file system ก็ได้
+
+GoApp -> Alloy -> Mimir
+
+Alloy จะรับข้อมูล Metrics เข้าไปในมาตรฐาน OpenTelemetry Metrics
+จากนั้นจะแปลงให้อยู่ในรูปแบบของ Permetheus Metrics แล้วจึงส่งต่อไปให้ Mimir เพื่อเก็บข้อมูลเอาไว้
+
+## OpenTelemetry Metrics
 
 การเก็บ Metrics ใน Go Application ด้วย OpenTelemetry มีประเภทของ metrics พื้นฐาน 4 แบบ
 
@@ -71,3 +80,18 @@ duration := time.Since(start).Seconds()
 latencyHistogram.Record(ctx, duration, metric.WithAttributes(attrs...))
 ```
 
+## Mimir
+
+Mimir จะรับข้อมูลเข้ามาในรูปแบบ Prometheus format 
+โดยปกติแล้วเรามักจะออกแบบให้ไปเก็บข้อมูลไว้ใน object storage เช่น AWS S3, GCS, Azure Blob Storage, MinIO(S3 onprimise), etc.
+การเก็บข้อมูล(long-term data storage) ใน object storage จะดีกว่าการเก็บใน local storage เมื่อนำไปใช้ในระบบที่ทำ AZ(Availability Zone) 
+เนื่องจากประหยัดค่าใช้จ่ายโดยเฉพาะเรื่อง Network cost(sync data ให้แต่ละ AZ ต้องเท่ากัน), ดูแลง่ายกว่าด้วย
+(object storage allowing us to take advantage of this ubiquitous, cost-effective, high-durability technology)
+
+Prometheus มีแค่ Counter และ Gauge เป็นหลัก (ไม่เหมือน OpenTelemetry Metrics) 
+
+ดังนั้นเมื่อส่ง UpDown Counter (เป็น metric type ใน OpenTelemetry) ไปยัง Alloy และแปลงเป็น Prometheus format ผ่าน otelcol.exporter.prometheus มันจะกลายเป็น metric แบบ gauge ใน Mimir
+
+## Reference
+
+- [Mimir](https://grafana.com/docs/mimir/latest/get-started/play-with-grafana-mimir/#download-tutorial-configuration)

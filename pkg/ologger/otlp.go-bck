@@ -1,0 +1,137 @@
+package ologger
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"time"
+
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+	otellog "go.opentelemetry.io/otel/log"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+// OTLPWriter implements io.Writer interface for sending logs to OTLP endpoint
+type OTLPWriter struct {
+	provider *sdklog.LoggerProvider
+}
+
+// Write implements io.Writer interface
+func (w *OTLPWriter) Write(p []byte) (n int, err error) {
+	// Parse JSON log entry
+	var logEntry struct {
+		Level     string    `json:"level"`
+		Timestamp time.Time `json:"timestamp"`
+		Message   string    `json:"msg"`
+		// เพิ่ม fields อื่นๆ ตามที่ต้องการ
+	}
+
+	if err := json.Unmarshal(p, &logEntry); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse log entry: %v\n", err)
+		return len(p), nil
+	}
+
+	// Map Zap level to OTLP severity
+	var severity otellog.Severity
+	switch logEntry.Level {
+	case "debug":
+		severity = otellog.SeverityDebug
+	case "info":
+		severity = otellog.SeverityInfo
+	case "warn":
+		severity = otellog.SeverityWarn
+	case "error":
+		severity = otellog.SeverityError
+	default:
+		severity = otellog.SeverityInfo
+	}
+
+	// Create log record with severity
+	logRecord := otellog.Record{}
+	logRecord.SetTimestamp(logEntry.Timestamp)
+	logRecord.SetSeverity(severity)
+	logRecord.SetBody(otellog.StringValue(logEntry.Message))
+
+	// Get logger from provider and emit log
+	otelLogger := w.provider.Logger("otlp")
+	otelLogger.Emit(context.Background(), logRecord)
+
+	return len(p), nil
+}
+
+// InitLogger initializes a new zap logger with OTLP integration
+func InitLogger(ctx context.Context, serviceName, otlpEndpoint string, res *resource.Resource) (*zap.Logger, *sdklog.LoggerProvider, error) {
+	// Initialize logs exporter
+	logExporter, err := otlploghttp.New(ctx,
+		otlploghttp.WithInsecure(),
+		otlploghttp.WithEndpoint(otlpEndpoint),
+		otlploghttp.WithURLPath("/v1/logs"),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create log exporter: %v", err)
+	}
+
+	processor := sdklog.NewBatchProcessor(logExporter)
+
+	logProvider := sdklog.NewLoggerProvider(
+		sdklog.WithProcessor(processor),
+		sdklog.WithResource(res),
+	)
+
+	// Create production encoder config
+	encoderConfig := zapcore.EncoderConfig{
+		TimeKey:       "timestamp",
+		LevelKey:      "level",
+		NameKey:       "logger",
+		CallerKey:     "caller",
+		MessageKey:    "msg",
+		StacktraceKey: "stacktrace",
+		LineEnding:    zapcore.DefaultLineEnding,
+		EncodeLevel: func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+			switch l {
+			case zapcore.DebugLevel:
+				enc.AppendString("debug")
+			case zapcore.InfoLevel:
+				enc.AppendString("info")
+			case zapcore.WarnLevel:
+				enc.AppendString("warn")
+			case zapcore.ErrorLevel:
+				enc.AppendString("error")
+			default:
+				enc.AppendString(l.String())
+			}
+		},
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
+
+	// Create OTLP hook for Zap
+	core := zapcore.NewTee(
+		zapcore.NewCore(
+			zapcore.NewJSONEncoder(encoderConfig),
+			zapcore.AddSync(os.Stdout),
+			zap.NewAtomicLevelAt(zap.DebugLevel),
+		),
+		zapcore.NewCore(
+			zapcore.NewJSONEncoder(encoderConfig),
+			zapcore.AddSync(&OTLPWriter{logProvider}),
+			zap.NewAtomicLevelAt(zap.DebugLevel),
+		),
+	)
+
+	// Create base logger with OTLP hook
+	baseLogger := zap.New(core,
+		zap.AddCaller(),
+		zap.AddStacktrace(zapcore.ErrorLevel),
+	)
+
+	// Set service name in logger
+	logger := baseLogger.With(zap.String("service.name", serviceName))
+
+	return logger, logProvider, nil
+}

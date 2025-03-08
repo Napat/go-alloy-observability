@@ -1,0 +1,39 @@
+{
+    "batches": [
+      {
+        "resource": {
+          "attributes": [
+            { "key": "service.name", "value": { "stringValue": "db" } },
+            { "key": "job", "value": { "stringValue": "tns/db" } },
+            { "key": "opencensus.exporterversion", "value": { "stringValue": "Jaeger-Go-2.22.1" } },
+            { "key": "host.name", "value": { "stringValue": "63d16772b4a2" } },
+            { "key": "ip", "value": { "stringValue": "0.0.0.0" } },
+            { "key": "client-uuid", "value": { "stringValue": "39fb01637a579639" } }
+          ]
+        },
+        "instrumentationLibrarySpans": [
+          {
+            "instrumentationLibrary": {},
+            "spans": [
+              {
+                "traceId": "AAAAAAAAAABguiq7RPE+rg==",
+                "spanId": "cmteMBAvwNA=",
+                "parentSpanId": "OY8PIaPbma4=",
+                "name": "HTTP GET - root",
+                "kind": "SPAN_KIND_SERVER",
+                "startTimeUnixNano": "1627471657255809000",
+                "endTimeUnixNano": "1627471657256268000",
+                "attributes": [
+                  { "key": "http.status_code", "value": { "intValue": "200" } },
+                  { "key": "http.method", "value": { "stringValue": "GET" } },
+                  { "key": "http.url", "value": { "stringValue": "/" } },
+                  { "key": "component", "value": { "stringValue": "net/http" } }
+                ],
+                "status": {}
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }

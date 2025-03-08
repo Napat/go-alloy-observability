@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	_ "net/http/pprof" // เพิ่ม pprof handler เพื่อให้ Alloy ดึงข้อมูลได้
+
+	// _ "net/http/pprof" // ปิด pprof handler: ใช้วิธี push-based profiling ไปให้ Alloy แทนการ pull
 	"os"
 	"runtime"
 	"time"
@@ -46,7 +47,7 @@ func initTelemetry() {
 	// Create resource with service information
 	res, err := resource.New(context.Background(),
 		resource.WithAttributes(
-			semconv.ServiceName("test-service"),
+			semconv.ServiceName("go-service"),
 		),
 	)
 	if err != nil {
@@ -57,7 +58,7 @@ func initTelemetry() {
 	ctx := context.Background()
 	otlpEndpoint := fmt.Sprintf("%s:%s", cfg.Services.OTLP.Host, cfg.Services.OTLP.Port)
 
-	logger, logProvider, err = ologger.InitLogger(ctx, "test-service", otlpEndpoint, res)
+	logger, logProvider, err = ologger.InitLogger(ctx, "go-service", otlpEndpoint, res)
 	if err != nil {
 		log.Fatalf("failed to initialize logger: %v", err)
 	}
@@ -77,6 +78,7 @@ func initTelemetry() {
 	tracerProvider := trace.NewTracerProvider(
 		trace.WithBatcher(traceExporter),
 		trace.WithResource(res),
+		trace.WithSampler(trace.AlwaysSample()),
 	)
 	otel.SetTracerProvider(tracerProvider)
 	tracer = tracerProvider
@@ -126,6 +128,11 @@ func main() {
 	e := echo.New()
 	// Add telemetry middleware
 	e.Use(middleware.Telemetry())
+
+	// // Traditional Profiling with Echo
+	// // 1. import _ "net/http/pprof"
+	// // 2. หลังจากที่สร้าง instance ของ echo แล้ว ให้เพิ่ม route สำหรับ pprof
+	// e.GET("/debug/pprof/*", echo.WrapHandler(http.DefaultServeMux))
 
 	// Demo endpoints that generate telemetry data
 	e.GET("/ping", func(c echo.Context) error {

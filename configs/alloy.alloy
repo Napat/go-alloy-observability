@@ -1,4 +1,16 @@
+// https://grafana.com/docs/alloy/latest/reference/config-blocks/livedebugging/#livedebugging-block
+livedebugging {
+  enabled = true
+}
+
+// https://grafana.com/docs/alloy/latest/reference/config-blocks/logging/#logging-block
+logging {
+  level  = "debug"
+  format = "logfmt"
+}
+
 // รับ OTLP telemetry
+// https://grafana.com/docs/alloy/latest/reference/components/otelcol/otelcol.exporter.prometheus/#basic-usage
 otelcol.receiver.otlp "default" {
   grpc {
     endpoint = "0.0.0.0:4317"
@@ -7,19 +19,39 @@ otelcol.receiver.otlp "default" {
     endpoint = "0.0.0.0:4318"
   }
   output {
-    metrics = [otelcol.exporter.otlp.mimir.input]
+    metrics = [otelcol.processor.batch.default.input]
     logs    = [otelcol.exporter.loki.default.input]
     traces  = [otelcol.exporter.otlp.tempo.input]
   }
 }
 
 // ส่ง metrics ไป Mimir
-otelcol.exporter.otlp "mimir" {
-  client {
-    endpoint = "mimir:9009"
-    tls {
-      insecure = true
-    }
+// https://grafana.com/docs/alloy/latest/reference/components/otelcol/otelcol.exporter.otlphttp/
+// https://grafana.com/docs/alloy/latest/collect/opentelemetry-data/
+// https://github.com/grafana/alloy/blob/main/example/config/alloy/config.alloy
+
+// Batch metrics เพื่อเตรียมส่งต่อ
+otelcol.processor.batch "default" {
+  output {
+    metrics = [otelcol.exporter.prometheus.default.input]
+  }
+}
+
+// แปลง OTLP metrics เป็น Prometheus metrics และส่งต่อ
+// Note:
+// ชื่อ OTLP metric ที่มีจุด เช่น test.gauge 
+// จะถูกแปลงเป็น Prometheus metric ชื่อ test_gauge 
+// -> จุดถูกแทนที่ด้วย underscore ซึ่งเป็น convention ของ Prometheus
+// เมื่อไป query จะต้องไป query หาชื่อว่า test_gauge 
+otelcol.exporter.prometheus "default" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+}
+
+// ส่ง metrics ไป Mimir ผ่าน Prometheus remote write
+// https://grafana.com/docs/mimir/latest/get-started/#configure-grafana-alloy-to-write-to-grafana-mimir
+prometheus.remote_write "mimir" {
+  endpoint {
+    url = "http://mimir:9009/api/v1/push"
   }
 }
 
@@ -35,9 +67,9 @@ loki.write "default" {
   }
   external_labels = {
     "source" = "alloy",
+    "env" = "prod",
   }
 }
-
 
 // ส่ง traces ไป Tempo
 otelcol.exporter.otlp "tempo" {

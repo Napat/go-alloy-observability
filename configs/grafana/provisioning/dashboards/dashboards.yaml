@@ -3,7 +3,7 @@ apiVersion: 1
 providers:
   - name: 'Demo Observability'
     orgId: 1
-    folder: 'Demo'
+    folder: 'Demo Observability Dashboards'
     type: file
     disableDeletion: false
     editable: true

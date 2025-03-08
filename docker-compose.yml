@@ -1,6 +1,6 @@
 services:
   mimir:
-    image: grafana/mimir:latest
+    image: grafana/mimir:2.14.3
     command: -config.file=/etc/mimir/config.yaml
     volumes:
       - ./configs/mimir.yaml:/etc/mimir/config.yaml
@@ -9,7 +9,7 @@ services:
       - "9009:9009"
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.4.2
     command: -config.file=/etc/loki/config.yaml
     volumes:
       - ./configs/loki.yaml:/etc/loki/config.yaml
@@ -18,7 +18,7 @@ services:
       - "3100:3100"
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:main-d635daa
     command: -config.file=/etc/tempo/config.yaml
     volumes:
       - ./configs/tempo.yaml:/etc/tempo/config.yaml
@@ -29,21 +29,21 @@ services:
       - "4318" # otlp http
 
   pyroscope:
-    image: grafana/pyroscope:latest
+    image: grafana/pyroscope:1.12.0
     ports:
       - "4040:4040"
     volumes:
       - ./docker/data/pyroscope:/data/pyroscope
 
   alloy:
-    image: grafana/alloy:latest
+    image: grafana/alloy:v1.7.1
     command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
     volumes:
       - ./configs/alloy.alloy:/etc/alloy/config.alloy
       - ./docker/data/alloy/data:/var/lib/alloy/data
     ports:
-      - "4317:4317"   # OTLP/gRPC telemetry data (metrics, logs, traces) receiver port
-      - "4318:4318"   # OTLP/HTTP telemetry data (metrics, logs, traces) receiver port 
+      - "4317:4317"   # OTLP/gRPC telemetry data (metrics, logs, traces, profiling) receiver port
+      - "4318:4318"   # OTLP/HTTP telemetry data (metrics, logs, traces, profiling) receiver port 
       - "12345:12345" # Alloy web interface
     depends_on:
       - mimir
@@ -52,7 +52,7 @@ services:
       - pyroscope
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.5.2
     ports:
       - "13000:3000"
     environment:
@@ -76,8 +76,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "18080:8080"  # Match the local port configuration
-      - "18081:18080" # For pprof debugging
+      - "18080:8080" 
     volumes:
       - ./configs:/app/configs
     environment:
