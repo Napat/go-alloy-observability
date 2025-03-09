@@ -1,24 +1,24 @@
 apiVersion: 1
 
 datasources:
-  - name: Mimir
-    type: prometheus
-    access: proxy
-    url: http://mimir:9009/prometheus
-    jsonData:
-      httpMethod: GET
-
   - name: Loki
     type: loki
     access: proxy
-    url: http://loki:3100
+    url: http://load-balancer:13100
     jsonData:
       maxLines: 1000
+
+  - name: Mimir
+    type: prometheus
+    access: proxy
+    url: http://load-balancer:19009/prometheus
+    jsonData:
+      httpMethod: GET
 
   - name: Tempo
     type: tempo
     access: proxy
-    url: http://tempo:3200
+    url: http://load-balancer:13200
     jsonData:
       serviceMap:
         datasourceUid: prometheus
@@ -30,6 +30,6 @@ datasources:
   - name: Pyroscope
     type: grafana-pyroscope-datasource
     access: proxy
-    url: http://pyroscope:4040
+    url: http://load-balancer:14040
     jsonData:
       httpMethod: GET

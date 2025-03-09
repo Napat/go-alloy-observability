@@ -1,25 +1,37 @@
 # Golang + OpenTelemetry + Zap + Alloy
 
-## Overview
+## ภาพรวม
 
-This project demonstrates how to use Golang with OpenTelemetry for logging, metrics, and tracing. It also includes a simple HTTP server for generating logs, metrics, and traces.
+โปรเจคนี้แสดงการทำ Observability โดยใช้ Golang ร่วมกับ OpenTelemetry สำหรับการจัดการ logging, metrics, tracing และ continuous profiler โดยมีการติดตามประสิทธิภาพของแอปพลิเคชันดังนี้
 
-- [การใช้งาน Grafana Loki สำหรับ Logging](docs/Loki.md)
-- [การใช้งาน Grafana Tempo สำหรับ Distributed Tracing](docs/Tempo.md)
-- [การใช้งาน Grafana Mimir สำหรับ Metrics](docs/Mimir.md)
+- **Logging**: การรวบรวม log แบบรวมศูนย์โดยใช้ Grafana Loki
+- **Metrics**: การจัดเก็บ metric ประสิทธิภาพสูงด้วย Grafana Mimir
+- **Tracing**: การติดตาม request แบบกระจายผ่าน Grafana Tempo
+- **Profiling**: การทำ profiling ประสิทธิภาพอย่างต่อเนื่องด้วย Pyroscope
+- **Collection**: การรวบรวมข้อมูลแบบรวมศูนย์ผ่าน Grafana Alloy
 
-## Diagram การทำงาน
+ลิงค์เอกสารเพิ่มเติม
+
+- [Grafana Loki สำหรับ Logging](docs/Loki.md)
+- [Grafana Tempo สำหรับ Distributed Tracing](docs/Tempo.md)
+- [Grafana Mimir สำหรับ Metrics](docs/Mimir.md)
+- [การใช้งาน MinIO(S3-compatible) และสถาปัตยกรรม Mimir + MinIO ที่ใช้ในโปรเจค](docs/Minio-Mimir-Architecture.md)
+- [Traditional/Continueus Profilier ด้วย OpenTelemetry, Alloy และ Pyroscope](docs/Pyroscope.md)
+
+## Diagram Architecture
 
 ```mermaid
 flowchart TB
     %% Define components with ports
-    Client["💻 Web/Mobile Clients"]
+    Client["💻 Web/Mobile Clients/Curl"]
     GoApp["🚀 Go Application<br/>(REST API :18080, pprof :18080/debug/pprof)"]
     Alloy["📡 Alloy<br/>OTLP<br/>gRPC:4317,HTTP:4318"]
-    Loki["📝 Loki<br/>(:3100)"]
-    Mimir["📊 Mimir<br/>(:9009)"]
-    Tempo["🔍 Tempo<br/>(:3200)"]
-    Pyroscope["📈 Pyroscope<br/>(:4040)"]
+    LoadBalancerPush["⚖️ Load Balancer (Push)<br/>(Nginx)"]
+    LoadBalancerQuery["⚖️ Load Balancer (Query)<br/>(Nginx)"]
+    Loki["📝 Loki x1<br/>(:3100)"]
+    Mimir["📊 Mimir x3<br/>(:9009)"]
+    Tempo["🔍 Tempo x1<br/>(:3200)"]
+    Pyroscope["📈 Pyroscope x1<br/>(:4040)"]
     Grafana["🎯 Grafana<br/>(:13000)"]
     DevOps(["👤 DevOps/SRE"])
 
@@ -32,22 +44,34 @@ flowchart TB
     %% Profile pull from Alloy to Go Application
     Alloy -.->|"❌(disable)<br/>HTTP Pull :18080/debug/pprof<br/>pprof profiles"| GoApp
 
-    %% Data flow from Alloy to storage systems
-    Alloy -->|"HTTP Push :3100<br/>logs"| Loki
-    Alloy -->|"HTTP Push :9009<br/>metrics"| Mimir
-    Alloy -->|"HTTP Push :3200<br/>traces"| Tempo
-    Alloy -->|"HTTP Push :4040<br/>profiles"| Pyroscope
+    %% Data flow from Alloy through Load Balancer (Push) to storage systems
+    Alloy -->|"HTTP Push :13100<br/>logs"| LoadBalancerPush
+    Alloy -->|"HTTP Push :19009<br/>metrics"| LoadBalancerPush
+    Alloy -->|"HTTP Push :14318<br/>traces"| LoadBalancerPush
+    Alloy -->|"HTTP Push :14040<br/>profiles"| LoadBalancerPush
 
-    %% Storage to Grafana
-    Loki -->|"HTTP Pull Query :3100"| Grafana
-    Mimir -->|"HTTP Pull Query :9009"| Grafana
-    Tempo -->|"HTTP Pull Query :3200"| Grafana
-    Pyroscope -->|"HTTP Pull Query :4040"| Grafana
+    %% Load Balancer (Push) to storage systems
+    LoadBalancerPush -->|"HTTP Push :3100<br/>logs"| Loki
+    LoadBalancerPush -->|"HTTP Push :9009<br/>metrics"| Mimir
+    LoadBalancerPush -->|"HTTP Push :4318<br/>traces"| Tempo
+    LoadBalancerPush -->|"HTTP Push :4040<br/>profiles"| Pyroscope
+
+    %% Storage to Load Balancer (Query)
+    Loki -->|"HTTP Pull :3100"| LoadBalancerQuery
+    Mimir -->|"HTTP Pull :9009"| LoadBalancerQuery
+    Tempo -->|"HTTP Pull :3200"| LoadBalancerQuery
+    Pyroscope -->|"HTTP Pull :4040"| LoadBalancerQuery
+
+    %% Load Balancer (Query) to Grafana
+    LoadBalancerQuery -->|"HTTP Pull :13100<br/>logs"| Grafana
+    LoadBalancerQuery -->|"HTTP Pull :19009<br/>metrics"| Grafana
+    LoadBalancerQuery -->|"HTTP Pull :13200<br/>traces"| Grafana
+    LoadBalancerQuery -->|"HTTP Pull :14040<br/>profiles"| Grafana
     
     %% DevOps at bottom
     Grafana -->|"Monitor & Analyze :13000"| DevOps
 
-    %% Modern styling (unchanged)
+    %% Modern styling
     classDef default fill:#ffffff,stroke:#2d3748,stroke-width:2px;
     classDef client fill:#f43f5e,color:#ffffff,stroke:#e11d48,stroke-width:2px;
     classDef app fill:#7c3aed,color:#ffffff,stroke:#6d28d9,stroke-width:2px;
@@ -55,30 +79,90 @@ flowchart TB
     classDef storage fill:#3b82f6,color:#ffffff,stroke:#2563eb,stroke-width:2px;
     classDef viz fill:#10b981,color:#ffffff,stroke:#059669,stroke-width:2px;
     classDef user fill:#6366f1,color:#ffffff,stroke:#4f46e5,stroke-width:2px;
+    classDef loadbalancer fill:#f97316,color:#ffffff,stroke:#ea580c,stroke-width:2px;
     
     class Client client;
     class GoApp app;
     class Alloy collector;
+    class LoadBalancerPush,LoadBalancerQuery loadbalancer;
     class Loki,Mimir,Tempo,Pyroscope storage;
     class Grafana viz;
     class DevOps user;
 ```
 
-Alloy เป็น distribution ของ OpenTelemetry Collector ซึ่งเป็นเครื่องมือสำหรับการเก็บรวบรวม ประมวลผล และส่งออก telemetry data เช่น logs, traces, และ metrics โดยเฉพาะอย่างยิ่งสำหรับการส่ง log ไปยัง Alloy ผ่าน OTLP ด้วย HTTP ผู้ใช้สามารถใช้ Golang ในการสร้าง application ที่ generate log โดยใช้ Zap ซึ่งเป็น logging library ที่มีประสิทธิภาพสูง และส่ง log เหล่านั้นไปยัง Alloy เพื่อการวิเคราะห์ต่อไป
+## MinIO(S3) and Mimir Architecture
 
-OTLP (OpenTelemetry Protocol) เป็น protocol ที่ออกแบบมาเพื่อส่ง telemetry data ไปยัง backend ที่รองรับ เช่น Alloy โดยสามารถใช้ผ่าน HTTP หรือ gRPC สำหรับกรณีโปรเจคนี้ จะใช้ HTTP ซึ่งจะต้องทำการส่งข้อมูลผ่าน HTTP POST ไปยัง endpoint ที่กำหนด เช่น `http://localhost:4318/v1/logs`
+```mermaid
+graph TB
+    %% Define Application Components
+    App["Application"]:::app --> Alloy["Alloy"]:::collector
+    
+    %% Define Mimir Components
+    subgraph "Mimir Cluster"
+        Mimir1["Mimir-1"]:::mimir
+        Mimir2["Mimir-2"]:::mimir
+        Mimir3["Mimir-3"]:::mimir
+    end
+    
+    %% Define MinIO Storage
+    subgraph "Object Storage"
+        MinIO["MinIO"]:::storage
+        MinIOBuckets["Buckets:<br/>- mimir<br/>- mimir-rules"]:::storage
+    end
+    
+    %% Define Load Balancer and UI Access
+    LoadBalancer["Load Balancer"]:::lb
+    Grafana["Grafana"]:::ui
+    DevOps["DevOps/SRE"]:::user
+    
+    %% Define Data Flow
+    Alloy -->|"Prometheus Format"| LoadBalancer
+    LoadBalancer -->|"Write/Query"| Mimir1
+    LoadBalancer -->|"Write/Query"| Mimir2
+    LoadBalancer -->|"Write/Query"| Mimir3
+    
+    %% MinIO Connections
+    Mimir1 -->|"Store/Retrieve"| MinIO
+    Mimir2 -->|"Store/Retrieve"| MinIO
+    Mimir3 -->|"Store/Retrieve"| MinIO
+    MinIO --- MinIOBuckets
+    
+    %% UI Access
+    LoadBalancer -->|"Query(HTTP Pull):19009"| Grafana
+    MinIO -->|":9001<br/>MinIO Web UI"| LoadBalancer
+    LoadBalancer -->|":19001<br/>MinIO Web UI"| DevOps
+    Grafana -->|"View Metrics"| DevOps
+    
+    %% Styling
+    classDef default fill:#ffffff,stroke:#2d3748,stroke-width:2px
+    classDef mimir fill:#7c3aed,color:#ffffff,stroke:#6d28d9,stroke-width:2px
+    classDef storage fill:#3b82f6,color:#ffffff,stroke:#2563eb,stroke-width:2px
+    classDef lb fill:#06b6d4,color:#ffffff,stroke:#0891b2,stroke-width:2px
+    classDef ui fill:#10b981,color:#ffffff,stroke:#059669,stroke-width:2px
+    classDef user fill:#f43f5e,color:#ffffff,stroke:#e11d48,stroke-width:2px
+    classDef app fill:#f97316,color:#ffffff,stroke:#ea580c,stroke-width:2px
+    classDef collector fill:#4b5cf6,color:#ffffff,stroke:#4c3aed,stroke-width:2px
+```
 
-Zap เป็น logging library สำหรับ Golang ที่มีโครงสร้างและประสิทธิภาพสูง แต่โดยปกติแล้ว Zap ไม่รองรับ OTLP โดยตรง ดังนั้น การผสานรวมกับ OTLP จึงต้องใช้ bridge หรือ plugin ที่ช่วยแปลง log record จาก Zap เป็น format ของ OpenTelemetry เพื่อให้สามารถส่งผ่าน OTLP Protocol (`Emit`) ไปยัง Alloy ได้ ดูตัวอย่างได้ที่ `pkg/otlp/otlp.go`
+## การทำงานของระบบ
 
-- **Logs Management**: ใช้ Loki เก็บและค้นหา logs
-- **Metrics Monitoring**: ใช้ Mimir เก็บ metrics แบบ long-term storage
+Alloy คือ distribution ของ OpenTelemetry Collector ซึ่งเป็นเครื่องมือสำหรับการรวบรวม ประมวลผล และส่งออก telemetry data เช่น logs, traces, และ metrics โดยเฉพาะการส่ง logs ไปยัง Alloy ผ่าน OTLP ด้วย HTTP ผู้ใช้สามารถพัฒนาแอปพลิเคชันด้วย Golang และใช้ Zap ซึ่งเป็น logging library ในการสร้าง logs และส่งไปยัง Alloy เพื่อการวิเคราะห์ต่อไป
+
+OTLP (OpenTelemetry Protocol) เป็นโปรโตคอลที่ออกแบบมาเพื่อส่ง telemetry data ไปยัง backend ที่รองรับ เช่น Alloy โดยสามารถใช้ได้ทั้งผ่าน HTTP และ gRPC สำหรับโปรเจกต์นี้ จะใช้การส่งข้อมูลผ่าน HTTP โดยส่งผ่าน HTTP POST ไปยัง endpoint ที่กำหนด เช่น `http://localhost:4318/v1/logs`
+
+Zap เป็น logging library สำหรับ Golang ที่มีความยืดหยุ่นและประสิทธิภาพสูง แต่เนื่องจาก Zap ไม่รองรับ OTLP โดยตรง การผสานรวมจึงต้องใช้ bridge หรือ plugin ที่ช่วยแปลง log records จาก Zap ให้อยู่ในรูปแบบของ OpenTelemetry เพื่อส่งผ่าน OTLP Protocol (`Emit`) ไปยัง Alloy ได้ ตัวอย่างสามารถดูได้ที่ `pkg/otlp/otlp.go`
+
+ระบบประกอบด้วยส่วนประกอบหลักดังนี้:
+
+- **การจัดการ Logs**: ใช้ Loki เก็บและค้นหา logs
+- **การติดตาม Metrics**: ใช้ Mimir เก็บ metrics แบบ long-term storage
 - **Distributed Tracing**: ใช้ Tempo ติดตาม requests across services
 - **Continuous Profiling**: ใช้ Pyroscope วิเคราะห์ performance
 - **Unified Collection**: ใช้ Grafana Alloy เป็น collector รวมศูนย์
 
 ![tracing-pipeline](assets/images/tracing-pipeline.png)
 
-Go app สร้าง metrics ผ่าน OpenTelemetry SDK และส่งไปยัง Alloy ผ่าน OTLP HTTP Push (ไม่ได้ทำงานแบบ Pull-based เหมือน Prometheus ซึ่ง app ต้องเปิด metrics endpoint ให้) ข้อดีของการใช้ Push-based คือ เหมาะกับ dynamic environments, สามารถส่งข้อมูลได้แม้อยู่หลัง firewall
+แอปพลิเคชัน Go สร้าง metrics โดยใช้ OpenTelemetry SDK และส่งไปยัง Alloy ผ่าน OTLP HTTP Push ซึ่งแตกต่างจาก Prometheus ที่ใช้การดึงข้อมูล (Pull-based) ซึ่งต้องเปิด metrics endpoint ภายในแอปพลิเคชันเอง ข้อดีของการใช้รูปแบบ Push-based คือเหมาะกับสภาพแวดล้อมแบบไดนามิก (dynamic environments) และสามารถส่งข้อมูลได้แม้อยู่หลัง firewall
 
 ![dashboard-log](assets/images/dashboard-log.png)
 ![dashboard-metrics](assets/images/dashboard-metrics.png)
@@ -93,22 +177,25 @@ Go app สร้าง metrics ผ่าน OpenTelemetry SDK และส่ง
 - Go 1.21 หรือสูงกว่า
 - Make
 
-### Installation
+ตรวจสอบให้แน่ใจว่าได้ติดตั้งและตั้งค่าความต้องการทั้งหมดอย่างถูกต้องก่อนดำเนินการติดตั้ง
 
-```bash
-# Start all services
-docker compose up -d
+### การติดตั้งและการตั้งค่าเริ่มต้น
 
-# Rebuild and restart specific services
-docker compose up --force-recreate -d
-```
-
-### TL;DR
+1. Clone repository
+2. เริ่มต้นบริการทั้งหมด:
 
 ```bash
 # สร้าง observability data(logs/metrics/traces + profiling) ด้วย Go application 
-# แล้วไปเปิด Grafana Dashboard http://localhost:13000/dashboards ดูผลเลย
-make generate-go-load
+make clean && make up && make generate-go-load 
+
+# Grafana Dashboard http://localhost:13000/dashboards 
+open http://localhost:13000/dashboards
+
+# Alloy UI
+open http://localhost:12345
+
+# Minio(s3) Object Storage UI (mimir:supersecret)
+open http://localhost:19001/browser
 ```
 
 ### Testing Components
@@ -153,7 +240,7 @@ make generate-go-load
 
 ### Accessing Dashboards
 
-Grafana: http://localhost:13000
+Grafana: <http://localhost:13000>
 
 - Default credentials: admin/admin
 - Available datasources:

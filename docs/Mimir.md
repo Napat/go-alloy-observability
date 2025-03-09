@@ -11,7 +11,7 @@ Alloy จะรับข้อมูล Metrics เข้าไปในมา�
 
 การเก็บ Metrics ใน Go Application ด้วย OpenTelemetry มีประเภทของ metrics พื้นฐาน 4 แบบ
 
-1. Counter
+### Counter
 
 - ใช้นับจำนวนที่เพิ่มขึ้นเรื่อยๆ เช่น จำนวน requests, errors
 - ค่าจะเพิ่มขึ้นเท่านั้น ไม่มีการลดลง
@@ -27,7 +27,7 @@ requestCounter, _ := meter.Int64Counter(
 requestCounter.Add(ctx, 1, metric.WithAttributes(attrs...))
 ```
 
-2. UpDown Counter
+### UpDown Counter
 
 - คล้าย Counter แต่ค่าสามารถลดลงได้
 - ใช้กับค่าที่มีการเพิ่ม/ลด เช่น จำนวน active connections
@@ -43,7 +43,7 @@ activeConnections.Add(ctx, 1)  // เพิ่มค่า
 activeConnections.Add(ctx, -1) // ลดค่า
 ```
 
-3. Gauge
+### Gauge
 
 - ค่าที่สามารถขึ้นลงได้ เช่น memory usage, CPU usage
 - เหมาะกับค่าที่เปลี่ยนแปลงตลอดเวลา
@@ -62,7 +62,7 @@ meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
 })
 ```
 
-4. Histogram
+### Histogram
 
 - ใช้วัดการกระจายของข้อมูล เช่น request duration, response size
 - แสดงผลเป็น buckets ของข้อมูล
@@ -82,16 +82,16 @@ latencyHistogram.Record(ctx, duration, metric.WithAttributes(attrs...))
 
 ## Mimir
 
-Mimir จะรับข้อมูลเข้ามาในรูปแบบ Prometheus format 
-โดยปกติแล้วเรามักจะออกแบบให้ไปเก็บข้อมูลไว้ใน object storage เช่น AWS S3, GCS, Azure Blob Storage, MinIO(S3 onprimise), etc.
-การเก็บข้อมูล(long-term data storage) ใน object storage จะดีกว่าการเก็บใน local storage เมื่อนำไปใช้ในระบบที่ทำ AZ(Availability Zone) 
+Mimir จะรับข้อมูลเข้ามาในรูปแบบ Prometheus format  
+โดยปกติแล้วเรามักจะออกแบบให้ไปเก็บข้อมูลไว้ใน object storage เช่น AWS S3, GCS, Azure Blob Storage, MinIO(S3 onprimise), etc.  
+การเก็บข้อมูล(long-term data storage) ใน object storage จะดีกว่าการเก็บใน local storage เมื่อนำไปใช้ในระบบที่ทำ AZ(Availability Zone)  
 เนื่องจากประหยัดค่าใช้จ่ายโดยเฉพาะเรื่อง Network cost(sync data ให้แต่ละ AZ ต้องเท่ากัน), ดูแลง่ายกว่าด้วย
 (object storage allowing us to take advantage of this ubiquitous, cost-effective, high-durability technology)
 
-Prometheus มีแค่ Counter และ Gauge เป็นหลัก (ไม่เหมือน OpenTelemetry Metrics) 
+Prometheus มีแค่ Counter และ Gauge เป็นหลัก (ไม่เหมือน OpenTelemetry Metrics)  
 
 ดังนั้นเมื่อส่ง UpDown Counter (เป็น metric type ใน OpenTelemetry) ไปยัง Alloy และแปลงเป็น Prometheus format ผ่าน otelcol.exporter.prometheus มันจะกลายเป็น metric แบบ gauge ใน Mimir
 
-## Reference
+## References
 
 - [Mimir](https://grafana.com/docs/mimir/latest/get-started/play-with-grafana-mimir/#download-tutorial-configuration)

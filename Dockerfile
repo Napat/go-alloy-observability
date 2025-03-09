@@ -9,7 +9,7 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
+# Build go application
 RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/api
 
 # Production stage

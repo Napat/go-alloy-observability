@@ -1,0 +1,109 @@
+# Mimir configuration file for minio storage backend
+# ref: https://github1s.com/grafana/mimir/blob/main/docs/sources/mimir/get-started/play-with-grafana-mimir/config/mimir.yaml
+multitenancy_enabled: false
+
+common:
+  storage:
+    backend: s3
+    s3:
+      endpoint: minio:9000
+      access_key_id: mimir
+      secret_access_key: supersecret
+      insecure: true
+      bucket_name: mimir
+
+blocks_storage:
+  storage_prefix: blocks
+  tsdb:
+    dir: /data/ingester
+
+alertmanager: {}
+
+alertmanager_storage:
+  backend: local
+
+memberlist:
+  join_members:
+    - mimir-1:7946
+    - mimir-2:7946
+    - mimir-3:7946
+  bind_addr:
+    - 0.0.0.0
+  bind_port: 7946
+  dead_node_reclaim_time: 30s
+  gossip_interval: 5s
+  gossip_nodes: 3
+  node_name: ${HOSTNAME}
+  stream_timeout: 5s
+
+compactor:
+  data_dir: /data/mimir/compactor
+  sharding_ring:
+    kvstore:
+      store: memberlist
+    heartbeat_timeout: 5m
+
+distributor:
+  ring:
+    # instance_addr: mimir-1
+    kvstore:
+      store: memberlist
+    heartbeat_timeout: 5m
+
+ingester_client:
+  grpc_client_config:
+    grpc_compression: gzip
+    max_recv_msg_size: 104857600
+    max_send_msg_size: 104857600
+
+ingester:
+  ring:
+    # instance_addr: mimir-1
+    kvstore:
+      store: memberlist
+    heartbeat_timeout: 5m
+    replication_factor: 1  # Set to 1 to match available instances
+    min_ready_duration: 0s
+    final_sleep: 0s
+
+ruler:
+  rule_path: /data/mimir/rules
+  ring:
+    # instance_addr: mimir-1
+    kvstore:
+      store: memberlist
+    heartbeat_timeout: 5m
+
+ruler_storage:
+  backend: s3
+  s3:
+    endpoint: minio:9000
+    bucket_name: mimir-rules
+    access_key_id: mimir
+    secret_access_key: supersecret
+    insecure: true
+
+server:
+  http_listen_port: 9009
+  grpc_listen_port: 9095
+  log_level: debug
+  grpc_server_max_recv_msg_size: 104857600  # 100MB
+  grpc_server_max_send_msg_size: 104857600  # 100MB
+  grpc_server_max_concurrent_streams: 1000
+  http_server_read_timeout: 30s
+  http_server_write_timeout: 2m0s
+
+api:
+  prometheus_http_prefix: /prometheus
+
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+    kvstore:
+      store: memberlist
+    instance_addr: mimir
+    heartbeat_timeout: 5m
+
+# Other ring configurations
+limits:
+  max_query_parallelism: 16

@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 5,
   "links": [],
   "panels": [
     {
@@ -664,13 +664,13 @@
     ]
   },
   "time": {
-    "from": "2025-03-08T07:04:37.774Z",
-    "to": "2025-03-08T07:06:49.187Z"
+    "from": "now-5m",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Traces Dashboard",
   "uid": "fab5705a-e213-4527-8c23-92cb7452e746",
-  "version": 3,
+  "version": 2,
   "weekStart": "monday"
 }

@@ -1,60 +1,112 @@
 services:
-  mimir:
-    image: grafana/mimir:2.14.3
-    command: -config.file=/etc/mimir/config.yaml
+
+  load-balancer:
+    image: nginx:1.27.4
     volumes:
-      - ./configs/mimir.yaml:/etc/mimir/config.yaml
-      - ./docker/data/mimir:/data/mimir
+      - ./configs/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - loki
+      - mimir-1
+      - mimir-2
+      - mimir-3
+      - tempo
+      - pyroscope
     ports:
-      - "9009:9009"
+      - 13100:13100   # loki http APIs
+      - 19009:19009   # mimir http Permetheus
+      - 14318:14318   # tempo http rx OTLP
+      - 13200:13200   # tempo http query
+      - 14040:14040   # pyroscope http
+      - 19001:19001   # minio webui
 
   loki:
     image: grafana/loki:3.4.2
     command: -config.file=/etc/loki/config.yaml
     volumes:
       - ./configs/loki.yaml:/etc/loki/config.yaml
-      - ./docker/data/loki:/loki
+      - loki-data:/loki
     ports:
-      - "3100:3100"
+      - 3100:3100 # Loki's port for HTTP APIs(Push & Query data)
+
+  # mimir:
+  #   image: grafana/mimir:2.14.3
+  #   command: -config.file=/etc/mimir/config.yaml
+  #   volumes:
+  #     - ./configs/mimir/mimir-minio-s3.yaml:/etc/mimir/config.yaml
+  #     - mimir-data:/data/mimir
+  #   ports:
+  #     - 9009:9009 # Mimir's port for HTTP APIs(Push & Query data)
+  #   depends_on:
+  #     - minio
+
+  mimir-1:
+    image: grafana/mimir:2.14.3
+    command: ["-config.file=/etc/mimir.yaml"]
+    hostname: mimir-1
+    depends_on:
+      - minio
+    volumes:
+      - ./configs/mimir/mimir-minio-s3.yaml:/etc/mimir.yaml
+      - ./configs/mimir/alertmanager-fallback-config.yaml:/etc/alertmanager-fallback-config.yaml
+      - mimir-1-data:/data
+
+  mimir-2:
+    image: grafana/mimir:2.14.3
+    command: ["-config.file=/etc/mimir.yaml"]
+    hostname: mimir-2
+    depends_on:
+      - minio
+    volumes:
+      - ./configs/mimir/mimir-minio-s3.yaml:/etc/mimir.yaml
+      - ./configs/mimir/alertmanager-fallback-config.yaml:/etc/alertmanager-fallback-config.yaml
+      - mimir-2-data:/data
+
+  mimir-3:
+    image: grafana/mimir:2.14.3
+    command: ["-config.file=/etc/mimir.yaml"]
+    hostname: mimir-3
+    depends_on:
+      - minio
+    volumes:
+      - ./configs/mimir/mimir-minio-s3.yaml:/etc/mimir.yaml
+      - ./configs/mimir/alertmanager-fallback-config.yaml:/etc/alertmanager-fallback-config.yaml
+      - mimir-3-data:/data
 
   tempo:
     image: grafana/tempo:main-d635daa
     command: -config.file=/etc/tempo/config.yaml
     volumes:
       - ./configs/tempo.yaml:/etc/tempo/config.yaml
-      - ./docker/data/tempo:/data/tempo
+      - tempo-data:/data/tempo/blocks
     ports:
-      - "3200:3200"  # Tempo's query port
-      - "4317" # otlp grpc
-      - "4318" # otlp http
+      - 3200:3200 # Tempo's query port
+      - 4317      # otlp grpc for rx data
+      - 4318      # otlp http for rx data
 
   pyroscope:
     image: grafana/pyroscope:1.12.0
     ports:
-      - "4040:4040"
+      - 4040  # pyroscope port for push & query data 
     volumes:
-      - ./docker/data/pyroscope:/data/pyroscope
+      - pyroscope-data:/data/pyroscope
 
   alloy:
     image: grafana/alloy:v1.7.1
     command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
     volumes:
       - ./configs/alloy.alloy:/etc/alloy/config.alloy
-      - ./docker/data/alloy/data:/var/lib/alloy/data
+      - alloy-data:/var/lib/alloy/data
     ports:
-      - "4317:4317"   # OTLP/gRPC telemetry data (metrics, logs, traces, profiling) receiver port
-      - "4318:4318"   # OTLP/HTTP telemetry data (metrics, logs, traces, profiling) receiver port 
-      - "12345:12345" # Alloy web interface
+      - 4317:4317   # OTLP/gRPC telemetry data (metrics, logs, traces, profiling) receiver port
+      - 4318:4318   # OTLP/HTTP telemetry data (metrics, logs, traces, profiling) receiver port 
+      - 12345:12345 # Alloy web interface
     depends_on:
-      - mimir
-      - loki
-      - tempo
-      - pyroscope
+      - load-balancer
 
   grafana:
     image: grafana/grafana:11.5.2
     ports:
-      - "13000:3000"
+      - 13000:3000
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
@@ -63,30 +115,52 @@ services:
       - GF_PATHS_DATA=/var/lib/grafana
     volumes:
       - grafana-storage:/var/lib/grafana
-      - ./configs/grafana/provisioning:/etc/grafana/provisioning
-      - ./configs/grafana/dashboards:/etc/grafana/dashboards
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./configs/grafana/dashboards:/etc/grafana/dashboards:ro
     depends_on:
-      - mimir
-      - loki
-      - tempo
-      - pyroscope
+      - load-balancer
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "18080:8080" 
+      - 18080:8080
     volumes:
       - ./configs:/app/configs
     environment:
       - CONFIG_FILE=/app/configs/api/docker.yml
     depends_on:
-      - mimir
-      - loki
-      - tempo
-      - pyroscope
       - alloy
+
+  minio:
+    image: minio/minio:RELEASE.2025-02-28T09-55-16Z
+    entrypoint: [""]
+    # command: ["sh", "-c", "mkdir -p /data/mimir /data/mimir-rules && minio server --quiet /data"]
+    command: ["sh", "-c", "mkdir -p /data/mimir /data/mimir-rules && minio server /data"]
+    environment:
+      - MINIO_ROOT_USER=mimir
+      - MINIO_ROOT_PASSWORD=supersecret
+      - MINIO_CONSOLE_ADDRESS=:9001 # Minio's web interface port
+    volumes:
+      - minio-data:/data
+    ports:
+      - 9000:9000     # Minio's S3 API
+      - 9001:9001     # Minio's web interface port
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: always
 
 volumes:
   grafana-storage:
+  minio-data:
+  alloy-data:
+  loki-data:
+  mimir-1-data:
+  mimir-2-data:
+  mimir-3-data:
+  tempo-data:
+  pyroscope-data:

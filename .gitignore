@@ -20,4 +20,4 @@ docker/data/**
 # Go specific
 *.test
 *.out
-/vendor/
+/vendor/ 

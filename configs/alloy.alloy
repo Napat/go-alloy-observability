@@ -19,12 +19,30 @@ otelcol.receiver.otlp "default" {
     endpoint = "0.0.0.0:4318"
   }
   output {
-    metrics = [otelcol.processor.batch.default.input]
     logs    = [otelcol.exporter.loki.default.input]
-    traces  = [otelcol.exporter.otlp.tempo.input]
+    metrics = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.exporter.otlphttp.tempo.input]
   }
 }
 
+////// LOG
+// ส่ง logs ไป Loki
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.default.receiver]
+}
+
+// write the logs to loki push endpoint using the loki_push component
+loki.write "default" {
+  endpoint {
+    url = "http://load-balancer:13100/loki/api/v1/push"
+  }
+  external_labels = {
+    "source" = "alloy",
+    "env" = "prod",
+  }
+}
+
+////// Metrics
 // ส่ง metrics ไป Mimir
 // https://grafana.com/docs/alloy/latest/reference/components/otelcol/otelcol.exporter.otlphttp/
 // https://grafana.com/docs/alloy/latest/collect/opentelemetry-data/
@@ -51,38 +69,25 @@ otelcol.exporter.prometheus "default" {
 // https://grafana.com/docs/mimir/latest/get-started/#configure-grafana-alloy-to-write-to-grafana-mimir
 prometheus.remote_write "mimir" {
   endpoint {
-    url = "http://mimir:9009/api/v1/push"
+    url = "http://load-balancer:19009/api/v1/push"
   }
 }
 
-// ส่ง logs ไป Loki
-otelcol.exporter.loki "default" {
-  forward_to = [loki.write.default.receiver]
-}
-
-// write the logs to loki push endpoint using the loki_push component
-loki.write "default" {
-  endpoint {
-    url = "http://loki:3100/loki/api/v1/push"
-  }
-  external_labels = {
-    "source" = "alloy",
-    "env" = "prod",
-  }
-}
-
+////// TRACE
 // ส่ง traces ไป Tempo
-otelcol.exporter.otlp "tempo" {
+otelcol.exporter.otlphttp "tempo" {
   client {
-    endpoint = "tempo:4317"
+    endpoint = "http://load-balancer:14318"
     tls {
       insecure = true
     }
   }
 }
 
+////// PROFILER
+// ส่ง contineus profiler ไป Pyroscope
 pyroscope.write "default" {
   endpoint {
-    url = "http://pyroscope:4040"
+    url = "http://load-balancer:14040"
   }
 }

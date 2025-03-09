@@ -164,9 +164,6 @@ test-alloy-metrics-gauge:
 # Send test counter metrics to Alloy : please read 
 # consumeMetric() https://github1s.com/grafana/alloy/blob/main/internal/component/otelcol/exporter/prometheus/internal/convert/convert.go#L280-L281
 # consumeSum() https://github1s.com/grafana/alloy/blob/main/internal/component/otelcol/exporter/prometheus/internal/convert/convert.go#L413-L414
-# เท่าที่ลอง aggregationTemporality ต้องเท่ากับ 2
-# ถ้า isMonotonic = false จะได้ชื่อว่า test_counter, ถ้า isMonotonic = true จะได้ชื่อว่า test_counter_total
-# สามารถปรับค่าขึ้นลงได้ปกติทั้งสองแบบเลย = Guage 
 test-alloy-metrics-sum-counter:
 	curl -X POST http://localhost:4318/v1/metrics \
 	-H "Content-Type: application/json" \

@@ -11,10 +11,10 @@ import (
 	"runtime"
 	"time"
 
-	"demo-observability/internal/config"
-	"demo-observability/internal/handlers"
-	"demo-observability/internal/middleware"
-	"demo-observability/pkg/ologger"
+	"github.com/Napat/go-alloy-observability/internal/config"
+	"github.com/Napat/go-alloy-observability/internal/handlers"
+	"github.com/Napat/go-alloy-observability/internal/middleware"
+	"github.com/Napat/go-alloy-observability/pkg/ologger"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"

@@ -1,3 +1,5 @@
+# Mimir configuration file for filesystem storage backend
+
 multitenancy_enabled: false
 
 common:

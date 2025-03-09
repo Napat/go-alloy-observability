@@ -1,4 +1,4 @@
-module demo-observability
+module github.com/Napat/go-alloy-observability
 
 go 1.23.2
 
